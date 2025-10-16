@@ -44,11 +44,24 @@ export default function RegistrationForm() {
 
   const [profilePic, setProfilePic] = useState<File | null>(null)
   const [companyLogo, setCompanyLogo] = useState<File | null>(null)
+  const [profilePreview, setProfilePreview] = useState<string | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
   function handleChange<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleProfileChange = (file: File | null) => {
+    setProfilePic(file)
+    setProfilePreview(file ? URL.createObjectURL(file) : null)
+  }
+
+  const handleLogoChange = (file: File | null) => {
+    setCompanyLogo(file)
+    setLogoPreview(file ? URL.createObjectURL(file) : null)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,6 +72,8 @@ export default function RegistrationForm() {
     try {
       const data = new FormData()
       Object.entries(form).forEach(([k, v]) => data.append(k, v ?? ""))
+
+      // Only append files if user selected new ones
       if (profilePic) data.append("profile_pics", profilePic)
       if (companyLogo) data.append("company_logo", companyLogo)
 
@@ -73,6 +88,7 @@ export default function RegistrationForm() {
       }
 
       setMessage("Registration submitted successfully.")
+
       // Reset form
       setForm({
         first_name: "",
@@ -93,6 +109,8 @@ export default function RegistrationForm() {
       })
       setProfilePic(null)
       setCompanyLogo(null)
+      setProfilePreview(null)
+      setLogoPreview(null)
     } catch (err: any) {
       setMessage(`Error: ${err.message}`)
     } finally {
@@ -240,27 +258,45 @@ export default function RegistrationForm() {
       {/* Visuals */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Field label="Profile Pics">
+          {profilePreview && (
+            <img
+              src={profilePreview}
+              alt="Profile Preview"
+              className="w-32 h-32 object-cover rounded-full mb-2"
+            />
+          )}
           <input
             type="file"
             accept="image/*"
             className="block w-full text-sm"
-            onChange={(e) => setProfilePic(e.target.files?.[0] ?? null)}
+            onChange={(e) => handleProfileChange(e.target.files?.[0] ?? null)}
           />
         </Field>
+
         <Field label="Company Logo">
+          {logoPreview && (
+            <img
+              src={logoPreview}
+              alt="Logo Preview"
+              className="w-32 h-32 object-contain mb-2"
+            />
+          )}
           <input
             type="file"
             accept="image/*"
             className="block w-full text-sm"
-            onChange={(e) => setCompanyLogo(e.target.files?.[0] ?? null)}
+            onChange={(e) => handleLogoChange(e.target.files?.[0] ?? null)}
           />
         </Field>
+
         <Field label="Change Background Colour">
           <input
             type="color"
             className="h-10 w-full rounded-md border bg-background px-3 py-2"
             value={form.change_background_colour}
-            onChange={(e) => handleChange("change_background_colour", e.target.value)}
+            onChange={(e) =>
+              handleChange("change_background_colour", e.target.value)
+            }
             aria-label="Choose background color"
           />
         </Field>
@@ -315,3 +351,4 @@ function Field({
     </label>
   )
 }
+

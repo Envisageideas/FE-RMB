@@ -35,6 +35,14 @@ export default function EditUserPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Previews for profile and logo
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // Track if user changed the files
+  const [profileChanged, setProfileChanged] = useState(false);
+  const [logoChanged, setLogoChanged] = useState(false);
+
   // Fetch user data
   useEffect(() => {
     if (!id) return;
@@ -44,6 +52,10 @@ export default function EditUserPage() {
         if (!res.ok) throw new Error("Failed to fetch user");
         const data = await res.json();
         setUser(data);
+
+        // Set initial previews
+        setProfilePreview(data.profile_pics || null);
+        setLogoPreview(data.company_logo || null);
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -58,7 +70,16 @@ export default function EditUserPage() {
   ) => {
     const { name, value, files, type } = e.target as HTMLInputElement;
     if (type === "file") {
-      setUser({ ...user, [name]: files && files.length > 0 ? files[0] : null });
+      const file = files && files.length > 0 ? files[0] : null;
+      setUser({ ...user, [name]: file });
+
+      if (name === "profile_pics") {
+        setProfilePreview(file ? URL.createObjectURL(file) : profilePreview);
+        setProfileChanged(!!file);
+      } else if (name === "company_logo") {
+        setLogoPreview(file ? URL.createObjectURL(file) : logoPreview);
+        setLogoChanged(!!file);
+      }
     } else {
       setUser({ ...user, [name]: value });
     }
@@ -72,17 +93,21 @@ export default function EditUserPage() {
     try {
       const formData = new FormData();
 
-      // Append all fields except read-only
       Object.entries(user).forEach(([key, value]) => {
         if (key === "id" || key === "created_at") return;
-        if (value === "" || value === null) return;
 
-        formData.append(key, value as any);
+        // Only append files if they are changed
+        if (key === "profile_pics" && !profileChanged) return;
+        if (key === "company_logo" && !logoChanged) return;
+
+        if (value !== null && value !== "") {
+          formData.append(key, value as any);
+        }
       });
 
       const res = await fetch(`${apiBase}/api/registrations/${id}/`, {
         method: "PATCH",
-        body: formData, // multipart/form-data
+        body: formData,
       });
 
       if (!res.ok) {
@@ -117,36 +142,67 @@ export default function EditUserPage() {
       >
         <h2 className="text-2xl font-bold mb-4">Edit User</h2>
 
+        {/* Profile Preview */}
+        <div>
+          <label className="block mb-1 font-semibold text-gray-700">
+            Profile Picture
+          </label>
+          {profilePreview && (
+            <img
+              src={profilePreview}
+              alt="Profile Preview"
+              className="w-32 h-32 object-cover rounded-full mb-2"
+            />
+          )}
+          <input
+            type="file"
+            name="profile_pics"
+            onChange={handleChange}
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Company Logo Preview */}
+        <div>
+          <label className="block mb-1 font-semibold text-gray-700">
+            Company Logo
+          </label>
+          {logoPreview && (
+            <img
+              src={logoPreview}
+              alt="Logo Preview"
+              className="w-32 h-32 object-contain mb-2"
+            />
+          )}
+          <input
+            type="file"
+            name="company_logo"
+            onChange={handleChange}
+            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Other Fields */}
         {Object.entries(user).map(([key, value]) => {
-          if (key === "id" || key === "created_at") return null;
+          if (["id","created_at","profile_pics","company_logo"].includes(key)) return null;
 
           let inputType = "text";
           if (key === "birth_date") inputType = "date";
           if (key === "email") inputType = "email";
           if (key === "change_background_colour") inputType = "color";
-          if (key === "profile_pics" || key === "company_logo") inputType = "file";
 
           return (
             <div key={key}>
               <label className="block mb-1 font-semibold text-gray-700">
                 {key.replace("_", " ")}
               </label>
-              {inputType === "file" ? (
-                <input
-                  type="file"
-                  name={key}
-                  onChange={handleChange}
-                  className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <input
-                  type={inputType}
-                  name={key}
-                  value={value || ""}
-                  onChange={handleChange}
-                  className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              )}
+              <input
+                type={inputType}
+                name={key}
+                value={value || ""}
+                onChange={handleChange}
+                className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           );
         })}

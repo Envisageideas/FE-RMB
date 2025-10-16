@@ -19,7 +19,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
 
+  // ✅ Fetch all registrations
   useEffect(() => {
     async function fetchUsers() {
       try {
@@ -44,21 +46,15 @@ export default function AdminDashboard() {
     fetchUsers();
   }, []);
 
-  // ✅ Delete handler
+  // ✅ Delete user
   async function handleDelete(id: number) {
     if (!confirm("Are you sure you want to delete this user?")) return;
-
     try {
       setDeleting(id);
       const res = await fetch(`${apiBase}/api/registrations/${id}/`, {
         method: "DELETE",
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to delete user");
-      }
-
-      // ✅ Update local state instantly
+      if (!res.ok) throw new Error("Failed to delete user");
       setUsers((prev) => prev.filter((u) => u.id !== id));
       alert("User deleted successfully!");
     } catch (err: any) {
@@ -68,8 +64,39 @@ export default function AdminDashboard() {
     }
   }
 
+  // ✅ Bulk upload Excel/CSV file
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setUploading(true);
+      const res = await fetch(`${apiBase}/api/registrations/bulk_upload/`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+      const result = await res.json();
+      alert(`✅ ${result.created.length} records uploaded successfully!`);
+
+      // Refresh list
+      const newRes = await fetch(`${apiBase}/api/registrations/`);
+      const updatedData = await newRes.json();
+      setUsers(updatedData);
+    } catch (err: any) {
+      alert(err.message || "Error uploading file");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   if (loading)
     return <div className="text-center text-gray-500 py-10">Loading users…</div>;
+
   if (error)
     return (
       <div className="text-center text-red-500 py-10">
@@ -79,7 +106,20 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+
+        <label className="bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700">
+          {uploading ? "Uploading..." : "Upload Excel/CSV"}
+          <input
+            type="file"
+            accept=".xlsx, .xls, .csv"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={uploading}
+          />
+        </label>
+      </div>
 
       {users.length === 0 ? (
         <p className="text-center text-gray-500">No user registrations found.</p>
